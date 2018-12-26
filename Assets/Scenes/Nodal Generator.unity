@@ -656,10 +656,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Position: {x: 0, y: 0}
-  Size: {x: 6, y: 6}
+  Size: {x: 4, y: 4}
   Shape: 1
   NodeSpaceX: 1
   NodeSpaceY: 1
   ObstructiveLayers:
     serializedVersion: 2
     m_Bits: 256
+  ShowNodeConnections: 0
+  ShowInvalidNodeConnections: 0
