@@ -329,7 +329,7 @@ namespace Sierra.Pathfinding
                     + node.ConnectedNodes[i].X + ","
                     + node.ConnectedNodes[i].Y;
             }
-            Debug.Log("Node connections for " + node.X + "," + node.Y + connectedString);s
+            Debug.Log("Node connections for " + node.X + "," + node.Y + connectedString);
         }
     }
     public class Node
