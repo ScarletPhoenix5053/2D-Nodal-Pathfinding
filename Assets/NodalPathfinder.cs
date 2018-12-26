@@ -35,6 +35,7 @@ namespace Sierra.Pathfinding
         {
             _nodeMesh = new NodeMesh(_startPos, Size, NodeSpaceX, NodeSpaceY, Shape);
             _nodeMesh.ValidateNodes(GetCollidersObsturctingNodeMesh());
+            _nodeMesh.GenerateNodeConnections(); 
         }
         public Path GetPathTo(Vector2 destination)
         {
@@ -162,6 +163,9 @@ namespace Sierra.Pathfinding
         }
         public void GenerateNodeConnections()
         {
+            if (Shape == FieldShape.Diamond)
+                throw new NotImplementedException("Diamond connection mesh not implimented yet");
+
             // For each collumn in row
             for (int x = 0; x < Nodes.Length; x++)
             {
@@ -171,7 +175,126 @@ namespace Sierra.Pathfinding
                     // Assign nearby nodes as connections
                     // x/y values cannot go below 0 or above array size!
 
-                    
+                    var node = Nodes[x][y];
+                    // Check if at left or bottom edge
+                    if (node.Y == 0)
+                    {
+                        if (node.X == 0)
+                        {
+                            // at origin (0,0)
+                            node.ConnectedNodes = new Node[]
+                            {
+                                // Above
+                                Nodes[x][y+1],
+                                Nodes[x+1][y+1],
+
+                                // To Side
+                                Nodes[x+1][y]
+                            };
+                        }
+                        else
+                        {
+                            // at bottom of collumn (x,0)
+                            node.ConnectedNodes = new Node[]
+                            {
+                                // Above
+                                Nodes[x-1][y+1],
+                                Nodes[x][y+1],
+                                Nodes[x+1][y+1],
+
+                                // To side
+                                Nodes[x-1][y],
+                                Nodes[x+1][y],
+                            };
+                        }
+                    }
+                    else if (node.X == 0)
+                    {
+                        // in first collumn (0,y)
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // Above
+                            Nodes[x][y+1],
+                            Nodes[x+1][y+1],
+
+                            // To Side
+                            Nodes[x+1][y],
+
+                            // Below
+                            Nodes[x][y-1],
+                            Nodes[x+1][y-1]
+                        };
+                    }
+                    // Check if at right or top edge
+                    else if (node.Y == Nodes[x].Length - 1)
+                    {
+                        if (node.X == Nodes.Length - 1)
+                        {
+                            // At top right corner (L-1,L-1)
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // To Side
+                            Nodes[x-1][y],
+
+                            // Below
+                            Nodes[x-1][y-1],
+                            Nodes[x][y-1]
+                        };
+                        }
+                        else
+                        {
+                            // At top edge (x,L-1)  
+                            node.ConnectedNodes = new Node[]
+                            {
+                            // To Side
+                            Nodes[x-1][y],
+                            Nodes[x+1][y],
+
+                            // Below
+                            Nodes[x-1][y-1],
+                            Nodes[x][y-1],
+                            Nodes[x+1][y-1]
+                            };
+                        }
+                    }
+                    else if (node.X == Nodes.Length - 1)
+                    {
+                        // At right edge (L-1,y)
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // Above
+                            Nodes[x-1][y],
+                            Nodes[x][y],
+
+                            // To Side
+                            Nodes[x-1][y],
+
+                            // Below
+                            Nodes[x-1][y-1],
+                            Nodes[x][y-1],
+                        };
+                    }
+                    // Not at any edge!
+                    else
+                    {
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // Above
+                            Nodes[x-1][y],
+                            Nodes[x][y],
+                            Nodes[x+1][y],
+
+                            // To Side
+                            Nodes[x-1][y],
+                            Nodes[x+1][y],
+
+                            // Below
+                            Nodes[x-1][y-1],
+                            Nodes[x][y-1],
+                            Nodes[x+1][y-1],
+                        };
+                    }
+                    Debug.Log("Node coordinates: " + node.X + "," + node.Y)
                 }
             }
         }
