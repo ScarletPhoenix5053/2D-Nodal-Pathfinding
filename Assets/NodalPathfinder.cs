@@ -176,13 +176,11 @@ namespace Sierra.Pathfinding
                     // x/y values cannot go below 0 or above array size!
 
                     var node = Nodes[x][y];
-                    // Check if at left or bottom edge
-                    if (y == 0)
+                    // Check if at corners
+                    if (y == 0 && x == 0)
                     {
-                        if (x == 0)
-                        {
-                            // at origin (0,0)
-                            node.ConnectedNodes = new Node[]
+                        // Bottom Left (origin)
+                        node.ConnectedNodes = new Node[]
                             {
                                 // Above
                                 Nodes[x][y+1],
@@ -191,26 +189,50 @@ namespace Sierra.Pathfinding
                                 // To Side
                                 Nodes[x+1][y]
                             };
-                        }
-                        else
-                        {
-                            // at bottom of collumn (x,0)
-                            node.ConnectedNodes = new Node[]
-                            {
-                                // Above
-                                Nodes[x-1][y+1],
-                                Nodes[x][y+1],
-                                Nodes[x+1][y+1],
-
-                                // To side
-                                Nodes[x-1][y],
-                                Nodes[x+1][y],
-                            };
-                        }
                     }
+                    else if (y == Nodes[x].Length - 1 && x == 0)
+                    {
+                        // Top Left
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // To Side
+                            Nodes[x+1][y],
+
+                            // Below
+                            Nodes[x][y-1],
+                            Nodes[x+1][y-1]
+                        };
+                    }
+                    else if (y == Nodes[x].Length - 1 && x == Nodes.Length-1)
+                    {
+                        // Top Right
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // To Side
+                            Nodes[x-1][y],
+
+                            // Below
+                            Nodes[x-1][y-1],
+                            Nodes[x][y-1]
+                        };
+                    }
+                    else if (y == 0 && x == Nodes.Length - 1)
+                    {
+                        // Bottom Right
+                        node.ConnectedNodes = new Node[]
+                        {
+                            // Above
+                            Nodes[x-1][y+1],
+                            Nodes[x][y+1],
+
+                            // To Side
+                            Nodes[x-1][y]
+                        };
+                    }
+                    // Check if at edges
                     else if (x == 0)
                     {
-                        // in first collumn (0,y)
+                        // Left
                         node.ConnectedNodes = new Node[]
                         {
                             // Above
@@ -225,26 +247,10 @@ namespace Sierra.Pathfinding
                             Nodes[x+1][y-1]
                         };
                     }
-                    // Check if at right or top edge
                     else if (y == Nodes[x].Length - 1)
                     {
-                        if (x == Nodes.Length - 1)
-                        {
-                            // At top right corner (L-1,L-1)
+                        // Top
                         node.ConnectedNodes = new Node[]
-                        {
-                            // To Side
-                            Nodes[x-1][y],
-
-                            // Below
-                            Nodes[x-1][y-1],
-                            Nodes[x][y-1]
-                        };
-                        }
-                        else
-                        {
-                            // At top edge (x,L-1)  
-                            node.ConnectedNodes = new Node[]
                             {
                             // To Side
                             Nodes[x-1][y],
@@ -255,11 +261,10 @@ namespace Sierra.Pathfinding
                             Nodes[x][y-1],
                             Nodes[x+1][y-1]
                             };
-                        }
                     }
                     else if (x == Nodes.Length - 1)
                     {
-                        // At right edge (L-1,y)
+                        // Right
                         node.ConnectedNodes = new Node[]
                         {
                             // Above
@@ -274,7 +279,22 @@ namespace Sierra.Pathfinding
                             Nodes[x][y-1],
                         };
                     }
-                    // Not at any edge!
+                    else if (y == 0)
+                    {
+                        // Bottom
+                        node.ConnectedNodes = new Node[]
+                            {
+                                // Above
+                                Nodes[x-1][y+1],
+                                Nodes[x][y+1],
+                                Nodes[x+1][y+1],
+
+                                // To side
+                                Nodes[x-1][y],
+                                Nodes[x+1][y],
+                            };
+                    }
+                    // Not at any corners or edges                   
                     else
                     {
                         node.ConnectedNodes = new Node[]
