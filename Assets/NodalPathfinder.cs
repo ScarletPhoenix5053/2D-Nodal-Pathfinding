@@ -314,17 +314,22 @@ namespace Sierra.Pathfinding
                             Nodes[x+1][y-1],
                         };
                     }
-                    var connectedString = " found: " + node.ConnectedNodes.Length;
-                    for (int i = 0; i < node.ConnectedNodes.Length; i++)
-                    {
-                        int n = i + 1;
-                        connectedString += ". " + n + ": "
-                            + node.ConnectedNodes[i].X + ","
-                            + node.ConnectedNodes[i].Y;
-                    }
-                    Debug.Log("Node connections for " + node.X + "," + node.Y + connectedString);
+                    LogNodeConnections(node);
                 }
             }
+        }
+
+        private void LogNodeConnections(Node node)
+        {
+            var connectedString = " found: " + node.ConnectedNodes.Length;
+            for (int i = 0; i < node.ConnectedNodes.Length; i++)
+            {
+                int n = i + 1;
+                connectedString += ". " + n + ": "
+                    + node.ConnectedNodes[i].X + ","
+                    + node.ConnectedNodes[i].Y;
+            }
+            Debug.Log("Node connections for " + node.X + "," + node.Y + connectedString);s
         }
     }
     public class Node
