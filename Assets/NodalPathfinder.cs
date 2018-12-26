@@ -177,9 +177,9 @@ namespace Sierra.Pathfinding
 
                     var node = Nodes[x][y];
                     // Check if at left or bottom edge
-                    if (node.Y == 0)
+                    if (y == 0)
                     {
-                        if (node.X == 0)
+                        if (x == 0)
                         {
                             // at origin (0,0)
                             node.ConnectedNodes = new Node[]
@@ -208,7 +208,7 @@ namespace Sierra.Pathfinding
                             };
                         }
                     }
-                    else if (node.X == 0)
+                    else if (x == 0)
                     {
                         // in first collumn (0,y)
                         node.ConnectedNodes = new Node[]
@@ -226,9 +226,9 @@ namespace Sierra.Pathfinding
                         };
                     }
                     // Check if at right or top edge
-                    else if (node.Y == Nodes[x].Length - 1)
+                    else if (y == Nodes[x].Length - 1)
                     {
-                        if (node.X == Nodes.Length - 1)
+                        if (x == Nodes.Length - 1)
                         {
                             // At top right corner (L-1,L-1)
                         node.ConnectedNodes = new Node[]
@@ -257,7 +257,7 @@ namespace Sierra.Pathfinding
                             };
                         }
                     }
-                    else if (node.X == Nodes.Length - 1)
+                    else if (x == Nodes.Length - 1)
                     {
                         // At right edge (L-1,y)
                         node.ConnectedNodes = new Node[]
@@ -294,7 +294,15 @@ namespace Sierra.Pathfinding
                             Nodes[x+1][y-1],
                         };
                     }
-                    Debug.Log("Node coordinates: " + node.X + "," + node.Y);
+                    var connectedString = " found: " + node.ConnectedNodes.Length;
+                    for (int i = 0; i < node.ConnectedNodes.Length; i++)
+                    {
+                        int n = i + 1;
+                        connectedString += ". " + n + ": "
+                            + node.ConnectedNodes[i].X + ","
+                            + node.ConnectedNodes[i].Y;
+                    }
+                    Debug.Log("Node connections for " + node.X + "," + node.Y + connectedString);
                 }
             }
         }
