@@ -294,7 +294,7 @@ namespace Sierra.Pathfinding
                             Nodes[x+1][y-1],
                         };
                     }
-                    Debug.Log("Node coordinates: " + node.X + "," + node.Y)
+                    Debug.Log("Node coordinates: " + node.X + "," + node.Y);
                 }
             }
         }
