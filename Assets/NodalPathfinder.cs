@@ -16,6 +16,7 @@ namespace Sierra.Pathfinding
         public bool ShowInvalidNodeConnections;
 
         private NodeMesh _nodeMesh;
+        private NodeConnection[] _nodeConnections;
         private Vector2 _startPos { get { return new Vector2(Position.x - Size.x / 2, Position.y - Size.y / 2); } }
 
 
@@ -35,7 +36,8 @@ namespace Sierra.Pathfinding
         {
             _nodeMesh = new NodeMesh(_startPos, Size, NodeSpaceX, NodeSpaceY, Shape);
             _nodeMesh.ValidateNodes(GetCollidersObsturctingNodeMesh());
-            _nodeMesh.GenerateNodeConnections(); 
+            _nodeMesh.AssignNodeConnections();
+            _nodeConnections = _nodeMesh.GetNodeConnections();
         }
         public Path GetPathTo(Vector2 destination)
         {
@@ -176,36 +178,55 @@ namespace Sierra.Pathfinding
                 }
             }
         }
-        public void GenerateNodeConnections()
+        /// <summary>
+        /// Fills out <see cref="Node.ConnectedNodes"/> in each node in the nodemesh. Fails if mesh is too small or does not exist.
+        /// </summary>
+        public void AssignNodeConnections()
         {
-            if (Shape == FieldShape.Diamond)
-                throw new NotImplementedException("Diamond connection mesh not implimented yet");
+            if (Nodes == null) throw new NullReferenceException(
+                "Nodes array in NodeMesh is unnasigned! " +
+                "Please generate nodemesh before attempting to assign connections.");
+            if (Nodes.Length <= 3 || Nodes[0].Length <= 3) throw new UnityException(
+                "Please ensure nodemesh contains more than 3 nodes along each axis");
 
-            // For each collumn in row
-            for (int x = 0; x < Nodes.Length; x++)
+            switch (Shape)
             {
-                // For each node in collum
-                for (int y = 0; y < Nodes[x].Length; y++)
-                {
-                    c_Node = Nodes[x][y];
-                    c_X = x;
-                    c_Y = y;
+                case FieldShape.Square:                    
+                    for (int x = 0; x < Nodes.Length; x++)
+                    {
+                        for (int y = 0; y < Nodes[x].Length; y++)
+                        {
+                            c_Node = Nodes[x][y];
+                            c_X = x;
+                            c_Y = y;
 
-                    if (At(Pos.BottomEdge) && At(Pos.LeftEdge)) AssignNodes(Pos.BottomLeftCorner);
-                    else if (At(Pos.TopEdge) && At(Pos.LeftEdge)) AssignNodes(Pos.TopLeftCorner);
-                    else if (At(Pos.TopEdge) && At(Pos.RightEdge)) AssignNodes(Pos.TopRightCorner);
-                    else if (At(Pos.BottomEdge) && At(Pos.RightEdge)) AssignNodes(Pos.BottomRightCorner);
+                            if (At(Pos.BottomEdge) && At(Pos.LeftEdge)) AssignNodes(Pos.BottomLeftCorner);
+                            else if (At(Pos.TopEdge) && At(Pos.LeftEdge)) AssignNodes(Pos.TopLeftCorner);
+                            else if (At(Pos.TopEdge) && At(Pos.RightEdge)) AssignNodes(Pos.TopRightCorner);
+                            else if (At(Pos.BottomEdge) && At(Pos.RightEdge)) AssignNodes(Pos.BottomRightCorner);
 
-                    else if (At(Pos.LeftEdge)) AssignNodes(Pos.LeftEdge);
-                    else if (At(Pos.TopEdge)) AssignNodes(Pos.TopEdge);
-                    else if (At(Pos.RightEdge)) AssignNodes(Pos.RightEdge);
-                    else if (At(Pos.BottomEdge)) AssignNodes(Pos.BottomEdge);
-                  
-                    else AssignNodes(Pos.Centre);
+                            else if (At(Pos.LeftEdge)) AssignNodes(Pos.LeftEdge);
+                            else if (At(Pos.TopEdge)) AssignNodes(Pos.TopEdge);
+                            else if (At(Pos.RightEdge)) AssignNodes(Pos.RightEdge);
+                            else if (At(Pos.BottomEdge)) AssignNodes(Pos.BottomEdge);
 
-                    if (DebugNodeConnections) LogNodeConnections(c_Node);
-                }
-            }
+                            else AssignNodes(Pos.Centre);
+
+                            if (DebugNodeConnections) LogNodeConnections(c_Node);
+                        }
+                    }
+                    break;
+
+                default:
+                    throw new NotImplementedException("Connections for node mesh shape " + Shape + " are not yet implimented");
+            }           
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        public NodeConnection[] GetNodeConnections()
+        {
+            throw new NotImplementedException();
         }
 
         private Node GetNode(int x, int y, InDirection pos)
