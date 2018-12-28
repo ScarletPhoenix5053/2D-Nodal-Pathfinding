@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Sierra.Pathfinding
@@ -38,6 +39,31 @@ namespace Sierra.Pathfinding
             _nodeMesh.ValidateNodes(GetCollidersObsturctingNodeMesh());
             _nodeMesh.AssignNodeConnections();
             _nodeConnections = _nodeMesh.GetNodeConnections();
+            Debug.Log(_nodeConnections.Length);
+        }
+        /// <summary>
+        /// Debugging method for testing value equality between two <see cref="NodeConnection"/> objects.
+        /// </summary>
+        public void TestNodeConnectionEquality()
+        {
+            var nodeA = new Node(45, 23);
+            var nodeB = new Node(23, 67);
+            var nodeC = new Node(45, 23);
+
+            NodeConnection connectionN = null;
+            var connectionAB = new NodeConnection(nodeA, nodeB);
+            var connectionAC = new NodeConnection(nodeA, nodeC);
+            var connectionBC = new NodeConnection(nodeA, nodeC);
+            var connectionABDuplicate = new NodeConnection(nodeA, nodeB);
+            var connectionABInverse = new NodeConnection(nodeA, nodeB);
+
+            Debug.Log("c.AB-AB| Expecting T, Got: " + (connectionAB == connectionAB));
+            Debug.Log("c.AB-AC| Expecting F, Got: " + (connectionAB == connectionAC));
+            Debug.Log("c.BC-AB| Expecting F, Got: " + (connectionBC == connectionAB));
+            Debug.Log("c.AB-AB(d)| Expecting T, Got: " + (connectionAB == connectionABDuplicate));
+            Debug.Log("c.AB-AB(i)| Expecting T, Got: " + (connectionAB == connectionABInverse));
+            Debug.Log("c.N-AC)| Expecting F, Got: " + (connectionAC == connectionN));
+            Debug.Log("c.N-Null)| Expecting T, Got: " + (null == connectionN));
         }
         public Path GetPathTo(Vector2 destination)
         {
@@ -76,11 +102,28 @@ namespace Sierra.Pathfinding
         }
         private void DrawNodeConnections()
         {
-            // Get list of connections
+            if (_nodeConnections == null) return;
 
-            // Check if connection is valid
-
-            // Draw connections, with colour dependant on validity
+            // for each nodeConnection
+            foreach (NodeConnection connection in _nodeConnections)
+            {
+                if (connection.Valid)
+                {
+                    // draw connection as green
+                    Gizmos.color = Color.green;
+                    Gizmos.DrawLine(
+                        new Vector2(connection.A.X, connection.A.Y),
+                        new Vector2(connection.B.X, connection.B.Y));
+                }
+                else
+                {
+                    // draw connection as red
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawLine(
+                        new Vector2(connection.A.X, connection.A.Y),
+                        new Vector2(connection.B.X, connection.B.Y));
+                }
+            }
         }
     }
     public class NodeMesh
@@ -226,7 +269,57 @@ namespace Sierra.Pathfinding
         /// </summary>
         public NodeConnection[] GetNodeConnections()
         {
-            throw new NotImplementedException();
+            var connections = new List<NodeConnection>();
+
+            // for each collumn of nodes
+            for (int x = 0; x < Nodes.Length; x++)
+            {
+                // for each node
+                for (int y = 0; y < Nodes[x].Length; y++)
+                {
+                    Debug.Log("main node");
+
+                    // for each connected node
+                    for (int n = 0; n < Nodes[x][y].ConnectedNodes.Length; n++)
+                    {
+                        Debug.Log("connected node");
+
+                        // generate  connection
+                        var newConnection = new NodeConnection(Nodes[x][y], Nodes[x][y].ConnectedNodes[n]);
+                        var isDuplicate = false;
+
+                        // check if first connection
+                        if (!connections.Any())
+                        {
+                            Debug.Log("adding FIRST new connection to connections list");
+                            connections.Add(newConnection);
+                        }
+                        else
+                        {
+                            // check if duplicate connection
+                            for (int o = 0; o < connections.Count; o++)
+                            {
+                                var oldConnection = connections[o];
+                                if (oldConnection.Equals(newConnection))
+                                {
+                                    Debug.Log("duplicate connection, will not add");
+                                    isDuplicate = true;
+                                    break; 
+                                }
+                            }
+
+                            // add to list if not duplicate connection
+                            if (!isDuplicate)
+                            {
+                                Debug.Log("adding new connection to connections list: " + newConnection);
+                                connections.Add(newConnection);
+                            }
+                        }
+                    }
+                }
+            }
+            // return list as array
+            return connections.ToArray();
         }
 
         private Node GetNode(int x, int y, InDirection pos)
@@ -407,12 +500,53 @@ namespace Sierra.Pathfinding
             Y = yPos;
             Valid = true;
         }
+
+        public override bool Equals(object obj)
+        {
+            Node that = obj as Node;
+
+            return !ReferenceEquals(null, that)
+                && int.Equals(this.X, that.X)
+                && int.Equals(this.Y, that.Y);
+        }
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                // Choose large primes to avoid hashing collisions
+                const int HashingBase = (int)2166136261;
+                const int HashingMultiplier = 16777619;
+
+                int hash = HashingBase;
+                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, X) ? X.GetHashCode() : 0);
+                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, Y) ? Y.GetHashCode() : 0);
+                return hash;
+            }
+        }
+        public static bool operator ==(Node nodeA, Node nodeB)
+        {
+            if (ReferenceEquals(nodeA, nodeB))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(null, nodeA))
+            {
+                return false;
+            }
+
+            return (nodeA.Equals(nodeB));
+        }
+        public static bool operator !=(Node nodeA, Node nodeB)
+        {
+            return !(nodeA == nodeB);
+        }
     }
     public class Path
     {
         public List<Vector2> Coordinates = new List<Vector2>();
     }
-    public struct NodeConnection
+    public class NodeConnection
     {
         public Node A;
         public Node B;
@@ -422,6 +556,48 @@ namespace Sierra.Pathfinding
         {
             A = a;
             B = b;
+        }
+
+        public override bool Equals(object value)
+        {
+            NodeConnection that = value as NodeConnection;
+
+            return !ReferenceEquals(null, that) &&
+                ((Node.ReferenceEquals(A, that.A) && Node.ReferenceEquals(B, that.B)) ||
+                (Node.ReferenceEquals(A, that.B) && Node.ReferenceEquals(B, that.A)));
+        }
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                // Choose large primes to avoid hashing collisions
+                const int HashingBase = (int)2166136261;
+                const int HashingMultiplier = 16777619;
+
+                int hash = HashingBase;
+                hash = (hash * HashingMultiplier) ^ 
+                    ((!ReferenceEquals(null, A) ? A.GetHashCode() : 0) ^ 
+                    (!ReferenceEquals(null, B) ? B.GetHashCode() : 0));
+                return hash;
+            }
+        }
+        public static bool operator ==(NodeConnection connectionA, NodeConnection connectionB)
+        {
+            if (ReferenceEquals(connectionA, connectionB))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(null, connectionA))
+            {
+                return false;
+            }
+
+            return (connectionA.Equals(connectionB));
+        }
+        public static bool operator !=(NodeConnection connectionA, NodeConnection connectionB)
+        {
+            return !(connectionA == connectionB);
         }
     }
     public enum FieldShape { Diamond, Square }
