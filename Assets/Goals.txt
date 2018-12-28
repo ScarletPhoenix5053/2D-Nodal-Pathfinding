@@ -1,8 +1,8 @@
 2D Nodal Pathfinding:
 / Generate Node Mesh
 / Validate Nodes
-* Generate Connections
-- Cull Bad Nodes & connections
+/ Generate Connections
+/ Cull Bad Nodes & connections
 - Get Node from Click
 - Generate A* path to target node
 

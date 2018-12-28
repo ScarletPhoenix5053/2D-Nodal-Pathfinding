@@ -39,7 +39,8 @@ namespace Sierra.Pathfinding
             _nodeMesh.ValidateNodes(GetCollidersObsturctingNodeMesh());
             _nodeMesh.AssignNodeConnections();
             _nodeConnections = _nodeMesh.GetNodeConnections();
-            Debug.Log(_nodeConnections.Length);
+            _nodeMesh.InvalidateBadNodes();
+            //_nodeMesh.DebugNode(7,5);
         }
         /// <summary>
         /// Debugging method for testing value equality between two <see cref="NodeConnection"/> objects.
@@ -103,6 +104,7 @@ namespace Sierra.Pathfinding
         private void DrawNodeConnections()
         {
             if (_nodeConnections == null) return;
+            if (!ShowNodeConnections) return;
 
             // for each nodeConnection
             foreach (NodeConnection connection in _nodeConnections)
@@ -117,11 +119,14 @@ namespace Sierra.Pathfinding
                 }
                 else
                 {
-                    // draw connection as red
-                    Gizmos.color = Color.red;
-                    Gizmos.DrawLine(
-                        new Vector2(connection.A.X, connection.A.Y),
-                        new Vector2(connection.B.X, connection.B.Y));
+                    if (ShowInvalidNodeConnections)
+                    {
+                        // draw connection as red
+                        Gizmos.color = Color.red;
+                        Gizmos.DrawLine(
+                            new Vector2(connection.A.X, connection.A.Y),
+                            new Vector2(connection.B.X, connection.B.Y));
+                    }
                 }
             }
         }
@@ -222,6 +227,32 @@ namespace Sierra.Pathfinding
             }
         }
         /// <summary>
+        /// Checks that each <see cref="Node"/> is connected to a minimum of three nodes, where <see cref="Node.Valid"/> is <see cref="true"/>. 
+        /// </summary>
+        public void InvalidateBadNodes()
+        {
+            foreach (Node[] nodeArray in Nodes)
+            {
+                foreach (Node node in nodeArray)
+                {
+                    var validNodeCount = 0;
+                    Debug.Log("valid node");
+                    Debug.Log("pre" +validNodeCount);
+                    foreach (Node connectedNode in node.ConnectedNodes)
+                    {
+                        if (connectedNode.Valid) validNodeCount++;
+                    }
+                    Debug.Log("post"+validNodeCount);
+                    if (validNodeCount < 3)
+                    {
+                        Debug.Log("hi");
+                        node.Valid = false;
+                    }
+                }
+            }
+            
+        }
+        /// <summary>
         /// Fills out <see cref="Node.ConnectedNodes"/> in each node in the nodemesh. Fails if mesh is too small or does not exist.
         /// </summary>
         public void AssignNodeConnections()
@@ -265,7 +296,7 @@ namespace Sierra.Pathfinding
             }           
         }
         /// <summary>
-        /// 
+        /// Creates one <see cref="NodeConnection"/> for each unique connection. This method takes a while to run so use it sparingly.
         /// </summary>
         public NodeConnection[] GetNodeConnections()
         {
@@ -277,13 +308,9 @@ namespace Sierra.Pathfinding
                 // for each node
                 for (int y = 0; y < Nodes[x].Length; y++)
                 {
-                    Debug.Log("main node");
-
                     // for each connected node
                     for (int n = 0; n < Nodes[x][y].ConnectedNodes.Length; n++)
                     {
-                        Debug.Log("connected node");
-
                         // generate  connection
                         var newConnection = new NodeConnection(Nodes[x][y], Nodes[x][y].ConnectedNodes[n]);
                         var isDuplicate = false;
@@ -291,7 +318,6 @@ namespace Sierra.Pathfinding
                         // check if first connection
                         if (!connections.Any())
                         {
-                            Debug.Log("adding FIRST new connection to connections list");
                             connections.Add(newConnection);
                         }
                         else
@@ -302,7 +328,6 @@ namespace Sierra.Pathfinding
                                 var oldConnection = connections[o];
                                 if (oldConnection.Equals(newConnection))
                                 {
-                                    Debug.Log("duplicate connection, will not add");
                                     isDuplicate = true;
                                     break; 
                                 }
@@ -311,7 +336,6 @@ namespace Sierra.Pathfinding
                             // add to list if not duplicate connection
                             if (!isDuplicate)
                             {
-                                Debug.Log("adding new connection to connections list: " + newConnection);
                                 connections.Add(newConnection);
                             }
                         }
@@ -322,6 +346,23 @@ namespace Sierra.Pathfinding
             return connections.ToArray();
         }
 
+        public void DebugNode(int x, int y)
+        {
+            var node = Nodes[x][y];
+            var validNodes = 0;
+            Debug.Log("Connectd nodes for node at " + x + "," + y + ": " + node.ConnectedNodes.Length);
+            foreach (Node connected in node.ConnectedNodes)
+            {
+                Debug.Log(connected.X + "," + connected.Y + " " + connected.Valid);
+                if (connected.Valid) validNodes++;
+            }
+            Debug.Log(validNodes);
+            if (validNodes < 3)
+            {
+                Debug.Log("bad node!");
+                node.Valid = false;
+            }
+        }
         private Node GetNode(int x, int y, InDirection pos)
         {
             switch (pos)
