@@ -655,7 +655,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec4b035a40930c24fac02d59e5b936ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Position: {x: 0, y: 0}
+  Position: {x: 2, y: 2}
   Size: {x: 4, y: 4}
   Shape: 1
   NodeSpaceX: 1

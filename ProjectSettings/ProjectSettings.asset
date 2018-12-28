@@ -618,7 +618,7 @@ PlayerSettings:
   cloudServicesEnabled:
     UNet: 1
   facebookSdkVersion: 7.9.4
-  apiCompatibilityLevel: 2
+  apiCompatibilityLevel: 3
   cloudProjectId: d6fde35a-96a0-4ef2-825f-663ec4b09682
   projectName: 2D Nodal Pathfinding
   organizationId: rivera7sierra

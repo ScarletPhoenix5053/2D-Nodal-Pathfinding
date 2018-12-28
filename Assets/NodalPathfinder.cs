@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Sierra.Pathfinding
@@ -16,6 +17,7 @@ namespace Sierra.Pathfinding
         public bool ShowInvalidNodeConnections;
 
         private NodeMesh _nodeMesh;
+        private NodeConnection[] _nodeConnections;
         private Vector2 _startPos { get { return new Vector2(Position.x - Size.x / 2, Position.y - Size.y / 2); } }
 
 
@@ -35,7 +37,33 @@ namespace Sierra.Pathfinding
         {
             _nodeMesh = new NodeMesh(_startPos, Size, NodeSpaceX, NodeSpaceY, Shape);
             _nodeMesh.ValidateNodes(GetCollidersObsturctingNodeMesh());
-            _nodeMesh.GenerateNodeConnections(); 
+            _nodeMesh.AssignNodeConnections();
+            _nodeConnections = _nodeMesh.GetNodeConnections();
+            Debug.Log(_nodeConnections.Length);
+        }
+        /// <summary>
+        /// Debugging method for testing value equality between two <see cref="NodeConnection"/> objects.
+        /// </summary>
+        public void TestNodeConnectionEquality()
+        {
+            var nodeA = new Node(45, 23);
+            var nodeB = new Node(23, 67);
+            var nodeC = new Node(45, 23);
+
+            NodeConnection connectionN = null;
+            var connectionAB = new NodeConnection(nodeA, nodeB);
+            var connectionAC = new NodeConnection(nodeA, nodeC);
+            var connectionBC = new NodeConnection(nodeA, nodeC);
+            var connectionABDuplicate = new NodeConnection(nodeA, nodeB);
+            var connectionABInverse = new NodeConnection(nodeA, nodeB);
+
+            Debug.Log("c.AB-AB| Expecting T, Got: " + (connectionAB == connectionAB));
+            Debug.Log("c.AB-AC| Expecting F, Got: " + (connectionAB == connectionAC));
+            Debug.Log("c.BC-AB| Expecting F, Got: " + (connectionBC == connectionAB));
+            Debug.Log("c.AB-AB(d)| Expecting T, Got: " + (connectionAB == connectionABDuplicate));
+            Debug.Log("c.AB-AB(i)| Expecting T, Got: " + (connectionAB == connectionABInverse));
+            Debug.Log("c.N-AC)| Expecting F, Got: " + (connectionAC == connectionN));
+            Debug.Log("c.N-Null)| Expecting T, Got: " + (null == connectionN));
         }
         public Path GetPathTo(Vector2 destination)
         {
@@ -74,11 +102,28 @@ namespace Sierra.Pathfinding
         }
         private void DrawNodeConnections()
         {
-            // Get list of connections
+            if (_nodeConnections == null) return;
 
-            // Check if connection is valid
-
-            // Draw connections, with colour dependant on validity
+            // for each nodeConnection
+            foreach (NodeConnection connection in _nodeConnections)
+            {
+                if (connection.Valid)
+                {
+                    // draw connection as green
+                    Gizmos.color = Color.green;
+                    Gizmos.DrawLine(
+                        new Vector2(connection.A.X, connection.A.Y),
+                        new Vector2(connection.B.X, connection.B.Y));
+                }
+                else
+                {
+                    // draw connection as red
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawLine(
+                        new Vector2(connection.A.X, connection.A.Y),
+                        new Vector2(connection.B.X, connection.B.Y));
+                }
+            }
         }
     }
     public class NodeMesh
@@ -86,6 +131,11 @@ namespace Sierra.Pathfinding
         // Jagged array to store nodes
         public Node[][] Nodes;
         public FieldShape Shape = FieldShape.Square;
+        public bool DebugNodeConnections = false;
+
+        private Node c_Node;
+        private int c_X;
+        private int c_Y;
 
         public NodeMesh(Vector2 origin, Vector2 size, float xSpacing, float ySpacing, FieldShape fieldShape = FieldShape.Square)
         {
@@ -144,6 +194,16 @@ namespace Sierra.Pathfinding
                     break;
             }
         }
+        private enum Pos
+        {
+            Centre,
+            BottomLeftCorner, BottomRightCorner, TopLeftCorner, TopRightCorner,
+            LeftEdge, RightEdge, BottomEdge, TopEdge
+        }
+        private enum InDirection
+        {
+            AboveLeft, Above, AboveRight, Left, Right, BelowLeft, Below, BelowRight
+        }
 
         public void ValidateNodes(Collider[] colliders)
         {
@@ -161,164 +221,245 @@ namespace Sierra.Pathfinding
                 }
             }
         }
-        public void GenerateNodeConnections()
+        /// <summary>
+        /// Fills out <see cref="Node.ConnectedNodes"/> in each node in the nodemesh. Fails if mesh is too small or does not exist.
+        /// </summary>
+        public void AssignNodeConnections()
         {
-            if (Shape == FieldShape.Diamond)
-                throw new NotImplementedException("Diamond connection mesh not implimented yet");
+            if (Nodes == null) throw new NullReferenceException(
+                "Nodes array in NodeMesh is unnasigned! " +
+                "Please generate nodemesh before attempting to assign connections.");
+            if (Nodes.Length <= 3 || Nodes[0].Length <= 3) throw new UnityException(
+                "Please ensure nodemesh contains more than 3 nodes along each axis");
 
-            // For each collumn in row
+            switch (Shape)
+            {
+                case FieldShape.Square:                    
+                    for (int x = 0; x < Nodes.Length; x++)
+                    {
+                        for (int y = 0; y < Nodes[x].Length; y++)
+                        {
+                            c_Node = Nodes[x][y];
+                            c_X = x;
+                            c_Y = y;
+
+                            if (At(Pos.BottomEdge) && At(Pos.LeftEdge)) AssignNodes(Pos.BottomLeftCorner);
+                            else if (At(Pos.TopEdge) && At(Pos.LeftEdge)) AssignNodes(Pos.TopLeftCorner);
+                            else if (At(Pos.TopEdge) && At(Pos.RightEdge)) AssignNodes(Pos.TopRightCorner);
+                            else if (At(Pos.BottomEdge) && At(Pos.RightEdge)) AssignNodes(Pos.BottomRightCorner);
+
+                            else if (At(Pos.LeftEdge)) AssignNodes(Pos.LeftEdge);
+                            else if (At(Pos.TopEdge)) AssignNodes(Pos.TopEdge);
+                            else if (At(Pos.RightEdge)) AssignNodes(Pos.RightEdge);
+                            else if (At(Pos.BottomEdge)) AssignNodes(Pos.BottomEdge);
+
+                            else AssignNodes(Pos.Centre);
+
+                            if (DebugNodeConnections) LogNodeConnections(c_Node);
+                        }
+                    }
+                    break;
+
+                default:
+                    throw new NotImplementedException("Connections for node mesh shape " + Shape + " are not yet implimented");
+            }           
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        public NodeConnection[] GetNodeConnections()
+        {
+            var connections = new List<NodeConnection>();
+
+            // for each collumn of nodes
             for (int x = 0; x < Nodes.Length; x++)
             {
-                // For each node in collum
+                // for each node
                 for (int y = 0; y < Nodes[x].Length; y++)
                 {
-                    // Assign nearby nodes as connections
-                    // x/y values cannot go below 0 or above array size!
+                    Debug.Log("main node");
 
-                    var node = Nodes[x][y];
-                    // Check if at corners
-                    if (y == 0 && x == 0)
+                    // for each connected node
+                    for (int n = 0; n < Nodes[x][y].ConnectedNodes.Length; n++)
                     {
-                        // Bottom Left (origin)
-                        node.ConnectedNodes = new Node[]
+                        Debug.Log("connected node");
+
+                        // generate  connection
+                        var newConnection = new NodeConnection(Nodes[x][y], Nodes[x][y].ConnectedNodes[n]);
+                        var isDuplicate = false;
+
+                        // check if first connection
+                        if (!connections.Any())
+                        {
+                            Debug.Log("adding FIRST new connection to connections list");
+                            connections.Add(newConnection);
+                        }
+                        else
+                        {
+                            // check if duplicate connection
+                            for (int o = 0; o < connections.Count; o++)
                             {
-                                // Above
-                                Nodes[x][y+1],
-                                Nodes[x+1][y+1],
+                                var oldConnection = connections[o];
+                                if (oldConnection.Equals(newConnection))
+                                {
+                                    Debug.Log("duplicate connection, will not add");
+                                    isDuplicate = true;
+                                    break; 
+                                }
+                            }
 
-                                // To Side
-                                Nodes[x+1][y]
-                            };
-                    }
-                    else if (y == Nodes[x].Length - 1 && x == 0)
-                    {
-                        // Top Left
-                        node.ConnectedNodes = new Node[]
-                        {
-                            // To Side
-                            Nodes[x+1][y],
-
-                            // Below
-                            Nodes[x][y-1],
-                            Nodes[x+1][y-1]
-                        };
-                    }
-                    else if (y == Nodes[x].Length - 1 && x == Nodes.Length-1)
-                    {
-                        // Top Right
-                        node.ConnectedNodes = new Node[]
-                        {
-                            // To Side
-                            Nodes[x-1][y],
-
-                            // Below
-                            Nodes[x-1][y-1],
-                            Nodes[x][y-1]
-                        };
-                    }
-                    else if (y == 0 && x == Nodes.Length - 1)
-                    {
-                        // Bottom Right
-                        node.ConnectedNodes = new Node[]
-                        {
-                            // Above
-                            Nodes[x-1][y+1],
-                            Nodes[x][y+1],
-
-                            // To Side
-                            Nodes[x-1][y]
-                        };
-                    }
-                    // Check if at edges
-                    else if (x == 0)
-                    {
-                        // Left
-                        node.ConnectedNodes = new Node[]
-                        {
-                            // Above
-                            Nodes[x][y+1],
-                            Nodes[x+1][y+1],
-
-                            // To Side
-                            Nodes[x+1][y],
-
-                            // Below
-                            Nodes[x][y-1],
-                            Nodes[x+1][y-1]
-                        };
-                    }
-                    else if (y == Nodes[x].Length - 1)
-                    {
-                        // Top
-                        node.ConnectedNodes = new Node[]
+                            // add to list if not duplicate connection
+                            if (!isDuplicate)
                             {
-                            // To Side
-                            Nodes[x-1][y],
-                            Nodes[x+1][y],
-
-                            // Below
-                            Nodes[x-1][y-1],
-                            Nodes[x][y-1],
-                            Nodes[x+1][y-1]
-                            };
+                                Debug.Log("adding new connection to connections list: " + newConnection);
+                                connections.Add(newConnection);
+                            }
+                        }
                     }
-                    else if (x == Nodes.Length - 1)
-                    {
-                        // Right
-                        node.ConnectedNodes = new Node[]
-                        {
-                            // Above
-                            Nodes[x-1][y],
-                            Nodes[x][y],
-
-                            // To Side
-                            Nodes[x-1][y],
-
-                            // Below
-                            Nodes[x-1][y-1],
-                            Nodes[x][y-1],
-                        };
-                    }
-                    else if (y == 0)
-                    {
-                        // Bottom
-                        node.ConnectedNodes = new Node[]
-                            {
-                                // Above
-                                Nodes[x-1][y+1],
-                                Nodes[x][y+1],
-                                Nodes[x+1][y+1],
-
-                                // To side
-                                Nodes[x-1][y],
-                                Nodes[x+1][y],
-                            };
-                    }
-                    // Not at any corners or edges                   
-                    else
-                    {
-                        node.ConnectedNodes = new Node[]
-                        {
-                            // Above
-                            Nodes[x-1][y],
-                            Nodes[x][y],
-                            Nodes[x+1][y],
-
-                            // To Side
-                            Nodes[x-1][y],
-                            Nodes[x+1][y],
-
-                            // Below
-                            Nodes[x-1][y-1],
-                            Nodes[x][y-1],
-                            Nodes[x+1][y-1],
-                        };
-                    }
-                    LogNodeConnections(node);
                 }
+            }
+            // return list as array
+            return connections.ToArray();
+        }
+
+        private Node GetNode(int x, int y, InDirection pos)
+        {
+            switch (pos)
+            {
+                case InDirection.AboveLeft:
+                    return Nodes[x - 1][y + 1];
+                case InDirection.Above:
+                    return Nodes[x][y + 1];
+                case InDirection.AboveRight:
+                    return Nodes[x + 1][y + 1];
+                case InDirection.Left:
+                    return Nodes[x - 1][y];
+                case InDirection.Right:
+                    return Nodes[x + 1][y];
+                case InDirection.BelowLeft:
+                    return Nodes[x - 1][y - 1];
+                case InDirection.Below:
+                    return Nodes[x][y - 1];
+                case InDirection.BelowRight:
+                    return Nodes[x + 1][y - 1];
+                default:
+                    throw new NullReferenceException("The position requested does not exist!");
+            }
+        }
+        private bool At(Pos edge)
+        {
+            switch (edge)
+            {
+                case Pos.LeftEdge:
+                    return c_X == 0;
+                case Pos.RightEdge:
+                    return c_X == Nodes.Length - 1;
+                case Pos.BottomEdge:
+                    return c_Y == 0;
+                case Pos.TopEdge:
+                    return c_Y == Nodes[c_X].Length - 1;
+                default:
+                    throw new NullReferenceException("Please use an EDGE enumeration of enum AtMesh, such as LeftEdge or TopEdge.");
             }
         }
 
+        private void AssignNodes(Pos atMesh)
+        {
+            switch (atMesh)
+            {
+                case Pos.Centre:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.AboveLeft),
+                        GetNode(c_X,c_Y,InDirection.Above),
+                        GetNode(c_X,c_Y,InDirection.AboveRight),
+                        GetNode(c_X,c_Y,InDirection.Left),
+                        GetNode(c_X,c_Y,InDirection.Right),
+                        GetNode(c_X,c_Y,InDirection.BelowLeft),
+                        GetNode(c_X,c_Y,InDirection.Below),
+                        GetNode(c_X,c_Y,InDirection.BelowRight)
+                    };
+                    break;
+
+                case Pos.BottomLeftCorner:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.Above),
+                        GetNode(c_X,c_Y,InDirection.AboveRight),
+                        GetNode(c_X,c_Y,InDirection.Right)
+                    };
+                    break;
+
+                case Pos.BottomRightCorner:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.AboveLeft),
+                        GetNode(c_X,c_Y,InDirection.Above),
+                        GetNode(c_X,c_Y,InDirection.Left)
+                    };
+                    break;
+
+                case Pos.TopLeftCorner:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.Right),
+                        GetNode(c_X,c_Y,InDirection.Below),
+                        GetNode(c_X,c_Y,InDirection.BelowRight)
+                    };
+                    break;
+
+                case Pos.TopRightCorner:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.Left),
+                        GetNode(c_X,c_Y,InDirection.BelowLeft),
+                        GetNode(c_X,c_Y,InDirection.Below)
+                    };
+                    break;
+                case Pos.LeftEdge:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.Above),
+                        GetNode(c_X,c_Y,InDirection.AboveRight),
+                        GetNode(c_X,c_Y,InDirection.Right),
+                        GetNode(c_X,c_Y,InDirection.Below),
+                        GetNode(c_X,c_Y,InDirection.BelowRight)
+                    };
+                    break;
+                case Pos.RightEdge:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.AboveLeft),
+                        GetNode(c_X,c_Y,InDirection.Above),
+                        GetNode(c_X,c_Y,InDirection.Left),
+                        GetNode(c_X,c_Y,InDirection.BelowLeft),
+                        GetNode(c_X,c_Y,InDirection.Below)
+                    };
+                    break;
+                case Pos.BottomEdge:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.AboveLeft),
+                        GetNode(c_X,c_Y,InDirection.Above),
+                        GetNode(c_X,c_Y,InDirection.AboveRight),
+                        GetNode(c_X,c_Y,InDirection.Left),
+                        GetNode(c_X,c_Y,InDirection.Right)
+                    };
+                    break;
+                case Pos.TopEdge:
+                    c_Node.ConnectedNodes = new Node[]
+                    {
+                        GetNode(c_X,c_Y,InDirection.Left),
+                        GetNode(c_X,c_Y,InDirection.Right),
+                        GetNode(c_X,c_Y,InDirection.BelowLeft),
+                        GetNode(c_X,c_Y,InDirection.Below),
+                        GetNode(c_X,c_Y,InDirection.BelowRight)
+                    };
+                    break;
+                default:
+                    break;
+            }
+        }
         private void LogNodeConnections(Node node)
         {
             var connectedString = " found: " + node.ConnectedNodes.Length;
@@ -359,8 +500,53 @@ namespace Sierra.Pathfinding
             Y = yPos;
             Valid = true;
         }
+
+        public override bool Equals(object obj)
+        {
+            Node that = obj as Node;
+
+            return !ReferenceEquals(null, that)
+                && int.Equals(this.X, that.X)
+                && int.Equals(this.Y, that.Y);
+        }
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                // Choose large primes to avoid hashing collisions
+                const int HashingBase = (int)2166136261;
+                const int HashingMultiplier = 16777619;
+
+                int hash = HashingBase;
+                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, X) ? X.GetHashCode() : 0);
+                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, Y) ? Y.GetHashCode() : 0);
+                return hash;
+            }
+        }
+        public static bool operator ==(Node nodeA, Node nodeB)
+        {
+            if (ReferenceEquals(nodeA, nodeB))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(null, nodeA))
+            {
+                return false;
+            }
+
+            return (nodeA.Equals(nodeB));
+        }
+        public static bool operator !=(Node nodeA, Node nodeB)
+        {
+            return !(nodeA == nodeB);
+        }
     }
-    public struct NodeConnection
+    public class Path
+    {
+        public List<Vector2> Coordinates = new List<Vector2>();
+    }
+    public class NodeConnection
     {
         public Node A;
         public Node B;
@@ -371,10 +557,48 @@ namespace Sierra.Pathfinding
             A = a;
             B = b;
         }
-    }
-    public class Path
-    {
-        public List<Vector2> Coordinates = new List<Vector2>();
+
+        public override bool Equals(object value)
+        {
+            NodeConnection that = value as NodeConnection;
+
+            return !ReferenceEquals(null, that) &&
+                ((Node.ReferenceEquals(A, that.A) && Node.ReferenceEquals(B, that.B)) ||
+                (Node.ReferenceEquals(A, that.B) && Node.ReferenceEquals(B, that.A)));
+        }
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                // Choose large primes to avoid hashing collisions
+                const int HashingBase = (int)2166136261;
+                const int HashingMultiplier = 16777619;
+
+                int hash = HashingBase;
+                hash = (hash * HashingMultiplier) ^ 
+                    ((!ReferenceEquals(null, A) ? A.GetHashCode() : 0) ^ 
+                    (!ReferenceEquals(null, B) ? B.GetHashCode() : 0));
+                return hash;
+            }
+        }
+        public static bool operator ==(NodeConnection connectionA, NodeConnection connectionB)
+        {
+            if (ReferenceEquals(connectionA, connectionB))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(null, connectionA))
+            {
+                return false;
+            }
+
+            return (connectionA.Equals(connectionB));
+        }
+        public static bool operator !=(NodeConnection connectionA, NodeConnection connectionB)
+        {
+            return !(connectionA == connectionB);
+        }
     }
     public enum FieldShape { Diamond, Square }
 }
