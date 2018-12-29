@@ -3,7 +3,7 @@
 / Validate Nodes
 / Generate Connections
 / Cull Bad Nodes & connections
-- Get Node from Click
+/ Get Node from Click
 - Generate A* path to target node
 
 Implimentation notes:

@@ -12,7 +12,6 @@ namespace Sierra.Pathfinding
             var nodalPathfinder = (NodalPathfinder)target;
 
             if (GUILayout.Button("Generate new NodeMesh")) nodalPathfinder.GenerateNodeMesh();
-            if (GUILayout.Button("Test NodeConnection Equality")) nodalPathfinder.TestNodeConnectionEquality();
         }
     }
 }

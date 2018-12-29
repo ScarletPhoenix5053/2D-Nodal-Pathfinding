@@ -15,7 +15,16 @@ namespace Sierra.Pathfinding
         public LayerMask ObstructiveLayers;
         public bool ShowNodeConnections;
         public bool ShowInvalidNodeConnections;
-
+        private Node SelectedNode
+        { get { return _selectedNode; }
+            set
+            {
+                if (_selectedNode != null) _selectedNode.Selected = false;
+                _selectedNode = value;
+                if (_selectedNode != null) _selectedNode.Selected = true;
+            }
+        }
+        private Node _selectedNode = null;
         private NodeMesh _nodeMesh;
         private NodeConnection[] _nodeConnections;
         private Vector2 _startPos { get { return new Vector2(Position.x - Size.x / 2, Position.y - Size.y / 2); } }
@@ -24,6 +33,17 @@ namespace Sierra.Pathfinding
         private void Awake()
         {
             GenerateNodeMesh();
+        }
+        private void FixedUpdate()
+        {
+            if (Input.GetKey(KeyCode.LeftShift))
+            {
+                GetNearestNodeToMouse();
+            }
+            else if (SelectedNode != null)
+            {
+                SelectedNode = null;
+            }
         }
         private void OnDrawGizmos()
         {
@@ -40,37 +60,27 @@ namespace Sierra.Pathfinding
             _nodeMesh.AssignNodeConnections();
             _nodeConnections = _nodeMesh.GetNodeConnections();
             _nodeMesh.InvalidateBadNodes();
-            //_nodeMesh.DebugNode(7,5);
         }
-        /// <summary>
-        /// Debugging method for testing value equality between two <see cref="NodeConnection"/> objects.
-        /// </summary>
-        public void TestNodeConnectionEquality()
+        public Node GetNearestNodeToMouse()
         {
-            var nodeA = new Node(45, 23);
-            var nodeB = new Node(23, 67);
-            var nodeC = new Node(45, 23);
-
-            NodeConnection connectionN = null;
-            var connectionAB = new NodeConnection(nodeA, nodeB);
-            var connectionAC = new NodeConnection(nodeA, nodeC);
-            var connectionBC = new NodeConnection(nodeA, nodeC);
-            var connectionABDuplicate = new NodeConnection(nodeA, nodeB);
-            var connectionABInverse = new NodeConnection(nodeA, nodeB);
-
-            Debug.Log("c.AB-AB| Expecting T, Got: " + (connectionAB == connectionAB));
-            Debug.Log("c.AB-AC| Expecting F, Got: " + (connectionAB == connectionAC));
-            Debug.Log("c.BC-AB| Expecting F, Got: " + (connectionBC == connectionAB));
-            Debug.Log("c.AB-AB(d)| Expecting T, Got: " + (connectionAB == connectionABDuplicate));
-            Debug.Log("c.AB-AB(i)| Expecting T, Got: " + (connectionAB == connectionABInverse));
-            Debug.Log("c.N-AC)| Expecting F, Got: " + (connectionAC == connectionN));
-            Debug.Log("c.N-Null)| Expecting T, Got: " + (null == connectionN));
+            var targetPos = Camera.main.ScreenToWorldPoint(
+                new Vector3(Input.mousePosition.x, Input.mousePosition.y, 10));
+            SelectedNode = _nodeMesh.GetNodeClosestTo(targetPos);
+            return SelectedNode; 
         }
         public Path GetPathTo(Vector2 destination)
         {
+            if (_nodeMesh == null) throw new NullReferenceException("please generate a nodemesh before calling GetPathTo(Vector2)");
+
+            // Create an open list. This list stores the nodes being considered to find the shortest path.
+
+            // Create a closed list. This list stored all the nodes that do not need to be considered anymore.
+
+
+
             throw new NotImplementedException();
         }
-
+        
         private Collider[] GetCollidersObsturctingNodeMesh()
         {
             return Physics.OverlapBox(Position, new Vector3(Size.x / 2, Size.y / 2, 1), transform.rotation, ObstructiveLayers);
@@ -95,9 +105,10 @@ namespace Sierra.Pathfinding
             {
                 foreach (Node node in nodes)
                 {
-                    if (node.Valid) Gizmos.color = Color.green;
+                    if (node.Selected)Gizmos.color = Color.yellow;
+                    else if (node.Valid) Gizmos.color = Color.green;
                     else Gizmos.color = Color.red;
-                    Gizmos.DrawSphere(new Vector2(node.X, node.Y), 0.1f);
+                    Gizmos.DrawSphere(new Vector2(node.Position.x, node.Position.y), 0.1f);
                 }
             }
         }
@@ -114,8 +125,8 @@ namespace Sierra.Pathfinding
                     // draw connection as green
                     Gizmos.color = Color.green;
                     Gizmos.DrawLine(
-                        new Vector2(connection.A.X, connection.A.Y),
-                        new Vector2(connection.B.X, connection.B.Y));
+                        new Vector2(connection.A.Position.x, connection.A.Position.y),
+                        new Vector2(connection.B.Position.x, connection.B.Position.y));
                 }
                 else
                 {
@@ -124,8 +135,8 @@ namespace Sierra.Pathfinding
                         // draw connection as red
                         Gizmos.color = Color.red;
                         Gizmos.DrawLine(
-                            new Vector2(connection.A.X, connection.A.Y),
-                            new Vector2(connection.B.X, connection.B.Y));
+                            new Vector2(connection.A.Position.x, connection.A.Position.y),
+                            new Vector2(connection.B.Position.x, connection.B.Position.y));
                     }
                 }
             }
@@ -153,13 +164,18 @@ namespace Sierra.Pathfinding
                     Shape = FieldShape.Square;
                     // Instantiate all nodes in area
                     row = new List<Node[]>();
-                    for (float x = origin.x; x <= origin.x + size.x; x += xSpacing)
+                    int numOfNodesX = Convert.ToInt32(size.x / xSpacing);
+                    for (int x = 0; x <= numOfNodesX; x++)
                     {
                         // Instantiate collumn by collumn
                         col = new List<Node>();
-                        for (float y = origin.y; y <= origin.y + size.y; y += ySpacing)
+                        int numOfNodesY = Convert.ToInt32(size.y / ySpacing);
+                        for (int y = 0; y <= numOfNodesY; y++)
                         {
-                            col.Add(new Node(x, y));
+                            var xPos = origin.x + x * xSpacing;
+                            var yPos = origin.y + y * ySpacing;
+                            var pos = new Vector2(xPos, yPos); 
+                            col.Add(new Node(pos, x, y));
                         }
                         // Convert list to array & store
                         row.Add(col.ToArray());
@@ -170,6 +186,10 @@ namespace Sierra.Pathfinding
 
                 case FieldShape.Diamond:
                     Shape = FieldShape.Diamond;
+                    throw new NotImplementedException("please correct the diamond shape constructor to account for the new node class before using it");
+
+                    /*
+
                     // Instantiate all nodes in area
                     row = new List<Node[]>();
                     for (float x = origin.x; x <= origin.x + size.x; x += xSpacing)
@@ -197,6 +217,8 @@ namespace Sierra.Pathfinding
                     // Convert list of arrays to jagged array & store
                     Nodes = row.ToArray();
                     break;
+
+                    */
             }
         }
         private enum Pos
@@ -209,20 +231,14 @@ namespace Sierra.Pathfinding
         {
             AboveLeft, Above, AboveRight, Left, Right, BelowLeft, Below, BelowRight
         }
-
         public void ValidateNodes(Collider[] colliders)
         {
-            // for each collider that could overlap a node
-            foreach (Collider collider in colliders)
+            foreach (Node[] nodeArray in Nodes)
             {
-                foreach (Node[] nodeArray in Nodes)
+                foreach (Node node in nodeArray)
                 {
-                    foreach (Node node in nodeArray)
-                    {
-                        // Check if a node overlaps it, and mark invalid if it does.
-                        if (collider.bounds.Contains(new Vector2(node.X, node.Y)))
-                            node.Valid = false;
-                    }
+                    if (Physics.OverlapSphere(new Vector2(node.Position.x, node.Position.y), 0.1f).Length > 0) node.Valid = false;
+                    if (node.Valid == false) Debug.Log("invalid node!");
                 }
             }
         }
@@ -235,17 +251,13 @@ namespace Sierra.Pathfinding
             {
                 foreach (Node node in nodeArray)
                 {
-                    var validNodeCount = 0;
-                    Debug.Log("valid node");
-                    Debug.Log("pre" +validNodeCount);
+                    var validNodeCount = 0; 
                     foreach (Node connectedNode in node.ConnectedNodes)
                     {
                         if (connectedNode.Valid) validNodeCount++;
                     }
-                    Debug.Log("post"+validNodeCount);
                     if (validNodeCount < 3)
                     {
-                        Debug.Log("hi");
                         node.Valid = false;
                     }
                 }
@@ -294,6 +306,26 @@ namespace Sierra.Pathfinding
                 default:
                     throw new NotImplementedException("Connections for node mesh shape " + Shape + " are not yet implimented");
             }           
+        }
+        public Node GetNodeClosestTo(Vector3 point)
+        {
+            Node closestNode = null;
+            float shortestDist = -1;
+            foreach (Node[] nodeArray in Nodes)
+            {
+                foreach (Node node in nodeArray)
+                {
+                    if (!node.Valid) continue; 
+                    var nodePos = new Vector3(node.Position.x, node.Position.y, 0);
+                    var distToNode = Vector3.Distance(nodePos, point);
+                    if (shortestDist < 0 || distToNode < shortestDist)
+                    {
+                        closestNode = node;
+                        shortestDist = distToNode;
+                    }
+                }
+            }
+            return closestNode;
         }
         /// <summary>
         /// Creates one <see cref="NodeConnection"/> for each unique connection. This method takes a while to run so use it sparingly.
@@ -353,7 +385,7 @@ namespace Sierra.Pathfinding
             Debug.Log("Connectd nodes for node at " + x + "," + y + ": " + node.ConnectedNodes.Length);
             foreach (Node connected in node.ConnectedNodes)
             {
-                Debug.Log(connected.X + "," + connected.Y + " " + connected.Valid);
+                Debug.Log(connected.Position.x + "," + connected.Position.y + " " + connected.Valid);
                 if (connected.Valid) validNodes++;
             }
             Debug.Log(validNodes);
@@ -363,6 +395,7 @@ namespace Sierra.Pathfinding
                 node.Valid = false;
             }
         }
+
         private Node GetNode(int x, int y, InDirection pos)
         {
             switch (pos)
@@ -508,10 +541,10 @@ namespace Sierra.Pathfinding
             {
                 int n = i + 1;
                 connectedString += ". " + n + ": "
-                    + node.ConnectedNodes[i].X + ","
-                    + node.ConnectedNodes[i].Y;
+                    + node.ConnectedNodes[i].Position.x + ","
+                    + node.ConnectedNodes[i].Position.y;
             }
-            Debug.Log("Node connections for " + node.X + "," + node.Y + connectedString);
+            Debug.Log("Node connections for " + node.Position.x + "," + node.Position.y + connectedString);
         }
     }
     public class Node
@@ -519,7 +552,9 @@ namespace Sierra.Pathfinding
         public float X;
         public float Y;
         public bool Valid;
+        public bool Selected = false;
         public Node[] ConnectedNodes;
+        public Vector2 Position;
 
         /// <summary>
         /// Spawns an invalid node at 0,0
@@ -535,10 +570,11 @@ namespace Sierra.Pathfinding
         /// </summary>
         /// <param name="xPos"></param>
         /// <param name="yPos"></param>
-        public Node(float xPos, float yPos)
+        public Node(Vector2 pos, int meshX, int meshY)
         {
-            X = xPos;
-            Y = yPos;
+            Position = pos;
+            X = meshX;
+            Y = meshY;
             Valid = true;
         }
 
@@ -547,8 +583,8 @@ namespace Sierra.Pathfinding
             Node that = obj as Node;
 
             return !ReferenceEquals(null, that)
-                && int.Equals(this.X, that.X)
-                && int.Equals(this.Y, that.Y);
+                && int.Equals(this.Position.x, that.Position.x)
+                && int.Equals(this.Position.y, that.Position.y);
         }
         public override int GetHashCode()
         {
@@ -559,8 +595,8 @@ namespace Sierra.Pathfinding
                 const int HashingMultiplier = 16777619;
 
                 int hash = HashingBase;
-                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, X) ? X.GetHashCode() : 0);
-                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, Y) ? Y.GetHashCode() : 0);
+                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, Position.x) ? Position.x.GetHashCode() : 0);
+                hash = (hash * HashingMultiplier) ^ (!ReferenceEquals(null, Position.y) ? Position.y.GetHashCode() : 0);
                 return hash;
             }
         }
